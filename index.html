@@ -650,8 +650,8 @@ $('#btn-g-up').addEventListener('click',function(){
   var pl=payload(),body={files:{}};body.files[GIST_FILE]={content:JSON.stringify(pl)};
   gmsg('Nahrávám…');
   fetch('https://api.github.com/gists/'+id,{method:'PATCH',headers:{Accept:'application/vnd.github+json',Authorization:'token '+tk,'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){
-    if(!r.ok){if(r.status===401)try{localStorage.removeItem('fcf_ghtoken')}catch(e){}throw new Error('HTTP '+r.status+(r.status===401?' (token neplatí, zkuste znovu)':''))}
-    try{localStorage.setItem('fcf_syncAt',pl.at)}catch(e){}gmsg('Nahráno '+new Date(pl.at).toLocaleString('cs-CZ')+'.')}).catch(function(e){gmsg('Nahrání selhalo: '+e.message+(e.message.indexOf('404')>=0?' (token nepatří majiteli gistu nebo nemá právo gist)':''),1)});
+    if(!r.ok){if(r.status===401||r.status===403||r.status===404)try{localStorage.removeItem('fcf_ghtoken')}catch(e){}throw new Error('HTTP '+r.status+' – uložený token byl smazán, klikněte znovu a zadejte token z účtu majitele gistu (infosummit-sportcz, právo gist)')}
+    try{localStorage.setItem('fcf_syncAt',pl.at)}catch(e){}gmsg('Nahráno '+new Date(pl.at).toLocaleString('cs-CZ')+'.')}).catch(function(e){gmsg('Nahrání selhalo: '+e.message+(e.message.indexOf('404')>=0?'':''),1)});
 });
 function fetchShared(){
   var id=gid();if(!id)return Promise.reject(new Error('Zadejte ID gistu.'));
