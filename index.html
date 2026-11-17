@@ -637,10 +637,10 @@ $('#btn-reset').addEventListener('click',function(){if(confirm('Obnovit výchoz�
 
 /* ---------- sdílení přes GitHub Gist ---------- */
 var GIST_ID='a75cc09e2d5871170ee90e88bdfc4989';var GIST_FILE='fapo-cashflow.json';
-function gid(){return (GIST_ID||localStorage.getItem('fcf_gist')||'').trim()}
+function gid(){var v='';try{v=(localStorage.getItem('fcf_gist')||'').trim()}catch(e){}return /^[0-9a-f]{20,40}$/i.test(v)?v:GIST_ID}
 function gmsg(t,bad){var e=$('#g-msg');e.textContent=t;e.style.color=bad?'#c62828':''}
-$('#g-id').value=gid();
-$('#g-id').addEventListener('change',function(){try{localStorage.setItem('fcf_gist',this.value.trim())}catch(e){}});
+(function(){var v='';try{v=localStorage.getItem('fcf_gist')||''}catch(e){}if(/^gh[a-z]_|^github_pat_/i.test(v)){try{localStorage.removeItem('fcf_gist')}catch(e){}}})();$('#g-id').value=gid();
+$('#g-id').addEventListener('change',function(){var v=this.value.trim();if(/^gh[a-z]_/i.test(v)||/^github_pat_/i.test(v)){this.value=GIST_ID;try{localStorage.removeItem('fcf_gist')}catch(e){}gmsg('To je token, ne ID gistu. Token se zadává až v okně po kliknutí na Nahrát.',1);return}try{localStorage.setItem('fcf_gist',v)}catch(e){}});
 function payload(){return {at:new Date().toISOString(),items:state.items,meta:state.meta,calib:state.calib,camps:state.camps,S:state.S,start:state.start,calOn:state.calOn,pokl:state.pokl,snap:snap}}
 $('#btn-g-up').addEventListener('click',function(){
   var id=gid();if(!id){gmsg('Zadejte ID gistu.',1);return}
@@ -651,7 +651,7 @@ $('#btn-g-up').addEventListener('click',function(){
   gmsg('Nahrávám…');
   fetch('https://api.github.com/gists/'+id,{method:'PATCH',headers:{Accept:'application/vnd.github+json',Authorization:'token '+tk,'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){
     if(!r.ok){if(r.status===401)try{localStorage.removeItem('fcf_ghtoken')}catch(e){}throw new Error('HTTP '+r.status+(r.status===401?' (token neplatí, zkuste znovu)':''))}
-    try{localStorage.setItem('fcf_syncAt',pl.at)}catch(e){}gmsg('Nahráno '+new Date(pl.at).toLocaleString('cs-CZ')+'.')}).catch(function(e){gmsg('Nahrání selhalo: '+e.message,1)});
+    try{localStorage.setItem('fcf_syncAt',pl.at)}catch(e){}gmsg('Nahráno '+new Date(pl.at).toLocaleString('cs-CZ')+'.')}).catch(function(e){gmsg('Nahrání selhalo: '+e.message+(e.message.indexOf('404')>=0?' (token nepatří majiteli gistu nebo nemá právo gist)':''),1)});
 });
 function fetchShared(){
   var id=gid();if(!id)return Promise.reject(new Error('Zadejte ID gistu.'));
