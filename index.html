@@ -287,6 +287,7 @@ $('#btn-load').addEventListener('click',function(){
   },30);
 });
 function afterData(){
+  state.camps.forEach(function(c){FIL.forEach(function(f){if(!Array.isArray(c[f[0]]))c[f[0]]=[]})});
   M.classify(state.items,state.S);
   var it=state.items,ks=0,out=0,nc=0,moc=0,miss=0;
   it.forEach(function(i){ks+=i.ks;out+=i.ks*i.outlet;nc+=i.ks*i.nc;moc+=i.ks*i.moc;if(!i.outlet||!i.nc)miss++});
@@ -350,7 +351,7 @@ function optionsFor(c,key){
 }
 function editCamp(c,isNew){
   if(!state.items.length){alert('Nejdřív načtěte data (záložka Data).');return}
-  cur=JSON.parse(JSON.stringify(c));curNew=!!isNew;
+  cur=Object.assign(M.emptyCampaign(),JSON.parse(JSON.stringify(c)));FIL.forEach(function(f){if(!Array.isArray(cur[f[0]]))cur[f[0]]=[]});curNew=!!isNew;
   $('#dc-title').textContent=isNew?'Nová kampaň':'Upravit kampaň';
   $('#dc-name').value=cur.name;$('#dc-disc').value=cur.disc;$('#dc-od').value=cur.od;$('#dc-do').value=cur.do;
   $('#dc-del').style.display=isNew?'none':'';$('#dc-dup').style.display=isNew?'none':'';
