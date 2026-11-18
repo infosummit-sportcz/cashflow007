@@ -145,7 +145,7 @@ svg text{font:11px var(--font);fill:var(--m)}
     <p class="muted" style="margin-top:0">Co zákazníci na prodejně hledali a nenašli (z dotazníků). Stav se mění přímo v tabulce.</p>
     <div class="seg" id="rq-st"></div>
     <div class="row"><div style="flex:2"><input id="rq-q" placeholder="Filtr: značka, kód, popis, kontakt, poznámka…"></div><div><select id="rq-brand"><option value="">Všechny značky</option></select></div><div><select id="rq-why"><option value="">Všechny důvody</option></select></div></div>
-    <p><button class="btn" id="rq-add">+ Nová poptávka</button> <button class="btn sec" id="rq-sync">Synchronizovat (sdílení)</button> <button class="btn sec" id="rq-xls">Export do Excelu</button> <span class="muted" id="rq-msg"></span></p>
+    <p><button class="btn" id="rq-add">+ Nová poptávka</button> <button class="btn sec" id="rq-sync">Synchronizovat (sdílení)</button> <button class="btn sec" id="rq-xls">Export do Excelu</button> <button class="btn sec" id="rq-imp">Import z Excelu</button> <button class="btn sec" id="rq-tpl">Šablona pro import</button><input type="file" id="f-rqimp" accept=".xlsx,.xls" style="display:none"> <span class="muted" id="rq-msg"></span></p>
     <table id="tb-rq" class="fx"></table><p class="muted" id="rq-info"></p></div>
   <div class="card"><h2>Poptávky podle značek</h2><table id="tb-rqb" class="fx"></table></div>
 </section>
@@ -1030,6 +1030,23 @@ function renderReq(){
 $('#rq-st').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;rqFilt=b.dataset.s;renderReq()});
 ['#rq-q','#rq-brand','#rq-why'].forEach(function(i){$(i).addEventListener('input',renderReq)});
 $('#rq-sync').addEventListener('click',function(){rqMsg('Synchronizuji…');syncReq(true).then(function(){renderReq()})});
+
+var RQ_HEAD=['Datum','Zapsal','Značka','Kód zboží','Zboží / popis','Velikost','Důvod','Cena zákazníka Kč','Kontakt','Poznámka','Odkaz na eShop','Stav'];
+$('#rq-tpl').addEventListener('click',function(){var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([RQ_HEAD,[today(),'JC','ON','2002566','Cloudrock Mid WP','44,5','Neměli moji velikost','','','chtěl 45','','Nová']]),'Poptávky');XLSX.writeFile(wb,'FAPO_poptavky_sablona.xlsx')});
+$('#rq-imp').addEventListener('click',function(){$('#f-rqimp').click()});
+$('#f-rqimp').addEventListener('change',function(e){
+  var f=e.target.files[0];e.target.value='';if(!f)return;
+  readSheet(f).then(function(rows){
+    var key=function(x){return [x.dt,x.kod,x.znacka,x.nazev,x.vel].join('|').toLowerCase()},have={};state.req.forEach(function(x){have[key(x)]=1});
+    var add=0,dup=0,bad=0;
+    rows.forEach(function(r0){var r={};for(var k in r0)r[k.trim()]=r0[k];
+      var dt=M.dkey(r['Datum']);var o={id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),dt:dt,autor:String(r['Zapsal']||'').trim(),znacka:String(r['Značka']||'').trim(),kod:String(r['Kód zboží']||'').trim(),nazev:String(r['Zboží / popis']||'').trim(),vel:String(r['Velikost']||'').trim(),why:String(r['Důvod']||'').trim()||RQ_WHY[4],cena:M.num(r['Cena zákazníka Kč']),zak:String(r['Kontakt']||'').trim(),pozn:String(r['Poznámka']||'').trim(),url:String(r['Odkaz na eShop']||'').trim(),stav:RQ_STAV.indexOf(String(r['Stav']||'').trim())>=0?String(r['Stav']).trim():'Nová',upd:iso8()};
+      if(o.kod&&/^\d+$/.test(o.kod))o.kod=M.pad7(o.kod);
+      if(!dt||!(o.nazev||o.kod||o.znacka)){bad++;return}
+      if(have[key(o)]){dup++;return}have[key(o)]=1;state.req.push(o);add++});
+    if(add)rqSave();renderReq();rqMsg('Import: přidáno '+add+', přeskočeno duplicit '+dup+(bad?', nepoužitelných řádků '+bad:'')+'.')
+  }).catch(function(x){rqMsg('Import selhal: '+x.message,1)});
+});
 $('#rq-add').addEventListener('click',function(){editReq(null)});
 function editReq(x){
   rqEdit=x;var n=!x;x=x||{dt:today(),stav:'Nová',why:RQ_WHY[0]};
@@ -1060,7 +1077,7 @@ $('#rq-xls').addEventListener('click',function(){
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a),'Poptávky');XLSX.writeFile(wb,'FAPO_poptavky_'+today()+'.xlsx');
 });
 
-var APP_VER='0.20';$('#ver').textContent='ver'+APP_VER;
+var APP_VER='0.21';$('#ver').textContent='ver'+APP_VER;
 /* ---------- start ---------- */
 if(typeof XLSX==='undefined'){$('#load-msg').innerHTML='<b style="color:#c62828">Chybí soubor xlsx.full.min.js – nahrajte ho do repozitáře vedle index.html a obnovte stránku (Ctrl+F5).</b>'}
 loadLS();fillSettings();
