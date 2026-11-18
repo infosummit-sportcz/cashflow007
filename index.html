@@ -79,11 +79,11 @@ svg text{font:11px var(--font);fill:var(--m)}
   <span class="chip" id="netchip"></span>
 </header>
 <nav id="nav">
-  <button data-t="data" class="on">Data</button><button data-t="kamp">Kampaně</button><button data-t="dop">Doporučení</button><button data-t="vys">Výsledek</button><button data-t="skut">Skutečnost</button><button data-t="nast">Nastavení</button>
+  <button data-t="kamp" class="on">Kampaně</button><button data-t="dop">Doporučení</button><button data-t="vys">Výsledek</button><button data-t="skut">Skutečnost</button><button data-t="nast">Nastavení</button><button data-t="data">Data 🔒</button>
 </nav>
 <main>
 
-<section id="t-data" class="on">
+<section id="t-data">
   <div class="card">
     <h2>Vstupní soubory</h2>
     <p class="muted">Soubory se zpracují přímo v zařízení (nikam se neposílají) a uloží se, aby aplikace fungovala i offline.</p>
@@ -110,7 +110,7 @@ svg text{font:11px var(--font);fill:var(--m)}
   </div>
 </section>
 
-<section id="t-kamp">
+<section id="t-kamp" class="on">
   <div class="card">
     <div class="row">
       <div><label>Stav skladu k datu / simulace od</label><input type="date" id="s-start"></div>
@@ -267,7 +267,17 @@ function idbGet(k){return idb().then(function(db){return new Promise(function(re
 
 /* ---------- navigace ---------- */
 function tab(t){$$('nav button').forEach(function(b){b.classList.toggle('on',b.dataset.t===t)});$$('section').forEach(function(s){s.classList.toggle('on',s.id==='t-'+t)});if(t==='vys')render();if(t==='dop')drawWaves();if(t==='skut')drawAct();window.scrollTo(0,0)}
-$('#nav').addEventListener('click',function(e){var b=e.target.closest('button');if(b)tab(b.dataset.t)});
+var PIN_HASH='c70d790e160ea5eed3760a7435aee3d829de668197b69608be31e0429db29526';
+function sha256(t){if(!(window.crypto&&crypto.subtle))return Promise.resolve(null);return crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)).then(function(b){return Array.prototype.map.call(new Uint8Array(b),function(x){return ('0'+x.toString(16)).slice(-2)}).join('')})}
+function dataUnlocked(){try{return sessionStorage.getItem('fcf_unlock')==='1'}catch(e){return false}}
+function openData(){
+  if(dataUnlocked()){tab('data');return}
+  var v=prompt('Záložka Data je určena pro IT. Zadejte PIN:');if(v===null)return;
+  sha256(v.trim()).then(function(h){
+    if(h===PIN_HASH){try{sessionStorage.setItem('fcf_unlock','1')}catch(e){}tab('data')}
+    else alert('Nesprávný PIN.')});
+}
+$('#nav').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;if(b.dataset.t==='data')openData();else tab(b.dataset.t)});
 
 /* ---------- načtení souborů ---------- */
 function readSheet(file,opts){return new Promise(function(res,rej){if(typeof XLSX==='undefined'){rej(new Error('chybí knihovna xlsx.full.min.js'));return}var fr=new FileReader();fr.onload=function(){try{var wb=XLSX.read(fr.result,{type:'array',cellDates:true});var ws=wb.Sheets[wb.SheetNames[0]];res(XLSX.utils.sheet_to_json(ws,{defval:''}))}catch(e){rej(e)}};fr.onerror=function(){rej(fr.error)};fr.readAsArrayBuffer(file)})}
@@ -353,7 +363,7 @@ function optionsFor(c,key){
   return Object.keys(cnt).filter(function(v){return v!==''}).sort(function(a,b){return a.localeCompare(b,'cs')}).map(function(v){return {v:v,n:cnt[v]}});
 }
 function editCamp(c,isNew){
-  if(!state.items.length){alert('Nejdřív načtěte data (záložka Data).');return}
+  if(!state.items.length){alert('Nejsou načtena data. Ceník a sklad nahrává IT v záložce Data (PIN), případně je načtěte ze sdílených dat.');return}
   cur=Object.assign(M.emptyCampaign(),JSON.parse(JSON.stringify(c)));FIL.forEach(function(f){if(!Array.isArray(cur[f[0]]))cur[f[0]]=[]});curNew=!!isNew;
   $('#dc-title').textContent=isNew?'Nová kampaň':'Upravit kampaň';
   $('#dc-name').value=cur.name;$('#dc-disc').value=cur.disc;$('#dc-od').value=cur.od;$('#dc-do').value=cur.do;
@@ -696,7 +706,7 @@ function autoShared(){
   }).catch(function(){});
 }
 
-var APP_VER='0.17';$('#ver').textContent='ver'+APP_VER;
+var APP_VER='0.18';$('#ver').textContent='ver'+APP_VER;
 /* ---------- start ---------- */
 if(typeof XLSX==='undefined'){$('#load-msg').innerHTML='<b style="color:#c62828">Chybí soubor xlsx.full.min.js – nahrajte ho do repozitáře vedle index.html a obnovte stránku (Ctrl+F5).</b>'}
 loadLS();fillSettings();
