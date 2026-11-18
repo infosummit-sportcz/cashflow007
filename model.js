@@ -331,7 +331,90 @@
     return { days: days, from: dmin, to: dmax, total: tot };
   }
 
+  /* ---------- analýza prodejů a návštěvnosti ---------- */
+  function dkey(d) {
+    if (d instanceof Date) return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+    var m = /^(\d{4})-(\d\d)-(\d\d)/.exec(String(d)); if (m) return m[1] + '-' + m[2] + '-' + m[3];
+    m = /^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/.exec(String(d));
+    return m ? m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2) : '';
+  }
+  /* kompaktní záznamy: [datum, hodina, kód, značka, téma, skupina, podskupina, sezóna, ks, tržba s DPH, doklad, sleva %] */
+  function parseSales(rows, pokladna) {
+    var out = [];
+    rows.forEach(function (r0) {
+      var r = trimKeys(r0);
+      if (pokladna && (str(r['POKLADNA']) === '' || num(r['POKLADNA']) !== num(pokladna))) return;
+      var dt = r['DATUM'], k = dkey(dt); if (!k) return;
+      var h = dt instanceof Date ? dt.getHours() : (/\d{1,2}:\d\d/.test(String(dt)) ? +String(dt).split(/[ T]/)[1].split(':')[0] : -1);
+      var q = num(r['MNOZSTVI']), pc = num(r['PC']), pcs = num(r['PC_SKLAD']);
+      out.push([k, h, pad7(r['KOD_ZBOZI']), str(r['ZNACKA']) || '?', str(r['TEMA']) || '?', str(r['SKUPINA']) || '?', str(r['PODSKUPINA']) || '?',
+        str(r['SEZONA']) || '?', q, Math.round(q * pc * 100) / 100, str(r['ID_DOKLAD']), pcs > 0 ? Math.round((1 - pc / pcs) * 1000) / 10 : 0]);
+    });
+    return out;
+  }
+  /* seskupení: keyIdx = index sloupce záznamu */
+  function groupSales(sales, keyIdx, from, to) {
+    var g = {}, docs = {};
+    sales.forEach(function (s) {
+      if (from && s[0] < from) return; if (to && s[0] > to) return;
+      var k = typeof keyIdx === 'function' ? keyIdx(s) : s[keyIdx];
+      var x = g[k] || (g[k] = { key: k, ks: 0, rev: 0, docs: 0, lines: 0, discW: 0, discKs: 0 }); var d = docs[k] || (docs[k] = {});
+      x.ks += s[8]; x.rev += s[9]; x.lines++;
+      if (s[8] > 0) { x.discW += s[11] * s[8]; x.discKs += s[8]; }
+      if (s[10] !== '' && !d[s[10] + '|' + s[0]]) { d[s[10] + '|' + s[0]] = 1; x.docs++; }
+    });
+    return Object.keys(g).map(function (k) { var x = g[k]; x.disc = x.discKs ? x.discW / x.discKs : 0; return x; });
+  }
+  /* návštěvnost z listů „Daily“ (pole polí) a „Hourly“ */
+  function findHeader(aoa, need) {
+    for (var i = 0; i < Math.min(aoa.length, 30); i++) {
+      var row = (aoa[i] || []).map(function (c) { return str(c); });
+      if (need.every(function (n) { return row.indexOf(n) >= 0; })) return { i: i, h: row };
+    }
+    return null;
+  }
+  function parseFoot(daily, hourly) {
+    var days = {}, hours = {}, n = 0;
+    var hd = daily && findHeader(daily, ['Date', 'Count_IN']);
+    if (hd) for (var i = hd.i + 1; i < daily.length; i++) {
+      var r = daily[i] || [], k = dkey(r[hd.h.indexOf('Date')]); if (!k) continue;
+      var c = num(r[hd.h.indexOf('Count_IN')]), a = hd.h.indexOf('Adults_IN') >= 0 ? num(r[hd.h.indexOf('Adults_IN')]) : c;
+      days[k] = [c, a]; n++;
+    }
+    var hh = hourly && findHeader(hourly, ['Date', 'Hour', 'Count_IN']);
+    if (hh) for (var j = hh.i + 1; j < hourly.length; j++) {
+      var q = hourly[j] || [], kk = dkey(q[hh.h.indexOf('Date')]); if (!kk) continue;
+      var hr = Math.round(num(q[hh.h.indexOf('Hour')])); if (hr < 0 || hr > 23) continue;
+      var a2 = hours[kk] || (hours[kk] = []); for (var z = 0; z < 24; z++) if (a2[z] == null) a2[z] = 0;
+      a2[hr] = num(q[hh.h.indexOf('Count_IN')]);
+    }
+    if (!n) Object.keys(hours).forEach(function (k) { var t = 0; hours[k].forEach(function (v) { t += v; }); days[k] = [t, t]; });
+    return { days: days, hours: hours };
+  }
+  var DOWN = ['Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota', 'Neděle'];
+  function dowOf(k) { return dowMon(parseDate(k)); }
+  /* statistika po dnech v týdnu; zahrnuje jen dny, které mají návštěvnost nebo prodej */
+  function weekdayStats(sales, foot, from, to) {
+    var st = DOWN.map(function (n, i) { return { dow: i, name: n, nDays: 0, vis: 0, visDays: 0, rev: 0, ks: 0, docs: 0, days: {} }; });
+    var byDay = {};
+    groupSales(sales, 0, from, to).forEach(function (x) { byDay[x.key] = x; });
+    var all = {}; Object.keys(byDay).forEach(function (k) { all[k] = 1; });
+    Object.keys(foot.days || {}).forEach(function (k) { if ((!from || k >= from) && (!to || k <= to)) all[k] = 1; });
+    Object.keys(all).forEach(function (k) {
+      var s = st[dowOf(k)], b = byDay[k], f = foot.days && foot.days[k];
+      s.nDays++; if (b) { s.rev += b.rev; s.ks += b.ks; s.docs += b.docs; }
+      if (f) { s.vis += f[0]; s.visDays++; }
+    });
+    var tv = 0, td = 0; st.forEach(function (s) { tv += s.vis; td += s.visDays; });
+    var avg = td ? tv / td : 0;
+    st.forEach(function (s) {
+      s.visAvg = s.visDays ? s.vis / s.visDays : 0; s.revAvg = s.nDays ? s.rev / s.nDays : 0; s.docsAvg = s.nDays ? s.docs / s.nDays : 0;
+      s.factor = avg ? s.visAvg / avg : 0; s.conv = s.vis && s.visDays ? s.docs / s.vis : 0;
+    });
+    return st;
+  }
+
   var api = { classify: classify, optimize: optimize, parseActuals: parseActuals, TRIDY: TRIDY, num: num, buildItems: buildItems, calibrate: calibrate, defaults: defaults, emptyCampaign: emptyCampaign,
-    matches: matches, simulate: simulate, parseDate: parseDate, fmtDate: fmtDate, seasonClass: seasonClass, DAY: DAY, dowMon: dowMon, pad7: pad7 };
+    matches: matches, simulate: simulate, parseDate: parseDate, fmtDate: fmtDate, seasonClass: seasonClass, DAY: DAY, dowMon: dowMon, pad7: pad7, parseSales: parseSales, groupSales: groupSales, parseFoot: parseFoot, weekdayStats: weekdayStats, DOWN: DOWN, dkey: dkey, dowOf: dowOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.FapoModel = api;
 })(typeof self !== 'undefined' ? self : this);
