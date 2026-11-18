@@ -292,6 +292,17 @@
           if (best.st < opt.target - 1e-9) best = hi;
         }
       }
+      if (ok && opt.mode === 'cash') {
+        var s0 = 0, found = ev(0);
+        if (found.st < opt.target) { var lo2 = 0, h2 = opt.cap; for (var q = 0; q < 22; q++) { var m2 = (lo2 + h2) / 2; if (ev(m2).st >= opt.target) h2 = m2; else lo2 = m2; } s0 = h2; }
+        var bc = null;
+        for (var sc = s0; sc <= opt.cap + 1e-9; sc += 0.01) {
+          var e2 = ev(sc);
+          if (e2.st < opt.target - 1e-9) continue;
+          if (!bc || e2.r.totals.cash > bc.r.totals.cash + 1) bc = e2;
+        }
+        if (bc) best = bc;
+      }
       var T = best.r.totals;
       res.push({ trida: g, ks: ks, models: sub.length, ladder: best.l, st: best.st, ok: ok, rev: T.rev, cost: T.cost / 1.21, gross: T.gross, left: T.leftKs, leftNC: T.leftNC });
     });
