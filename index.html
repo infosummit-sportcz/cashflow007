@@ -19,7 +19,7 @@ body{margin:0;font:15px/1.45 var(--font);background:var(--bg);color:var(--t)}
 .top h1{margin:0;font-size:clamp(1.5rem,5.2vw,2.3rem);font-weight:800;font-stretch:125%;letter-spacing:-.01em;line-height:1.05}
 .top .sub{margin:6px 0 0;color:var(--m);font-size:.95rem}
 .title-row{display:flex;align-items:center;gap:14px}
-.brand-logo{height:46px;width:auto;flex:none}
+.brand-logo{height:56px;width:auto;flex:none}.ver{align-self:flex-end;margin-bottom:6px;font-size:13px;font-weight:600;color:var(--m);white-space:nowrap}
 .chip{font-size:12px;border:1.5px solid var(--l);color:var(--m);border-radius:10px;padding:2px 9px}
 nav{display:flex;background:var(--bg);border-bottom:1.5px solid var(--l);position:sticky;top:0;z-index:4;max-width:1100px;margin:0 auto;padding:0 12px}
 nav{overflow-x:auto}nav button{flex:1;padding-left:10px!important;padding-right:10px!important;white-space:nowrap;font-size:14px;padding:12px 2px;border:0;background:none;font:inherit;font-weight:600;color:var(--m);border-bottom:3px solid transparent;cursor:pointer}
@@ -73,7 +73,7 @@ svg text{font:11px var(--font);fill:var(--m)}
 <body>
 <header class="top">
   <div>
-    <div class="title-row"><img class="brand-logo" id="logo" src="logo.png" alt="SUMMIT SPORT"><h1>Slevové kampaně a cash flow</h1></div>
+    <div class="title-row"><img class="brand-logo" id="logo" src="logo.png" alt="SUMMIT SPORT"><h1>Slevové kampaně a cash flow</h1><span class="ver" id="ver"></span></div>
     <p class="sub">Pop-up FAPO · sklad 007 · modelování tržeb podle slevových akcí</p>
   </div>
   <span class="chip" id="netchip"></span>
@@ -696,6 +696,7 @@ function autoShared(){
   }).catch(function(){});
 }
 
+var APP_VER='0.17';$('#ver').textContent='ver'+APP_VER;
 /* ---------- start ---------- */
 if(typeof XLSX==='undefined'){$('#load-msg').innerHTML='<b style="color:#c62828">Chybí soubor xlsx.full.min.js – nahrajte ho do repozitáře vedle index.html a obnovte stránku (Ctrl+F5).</b>'}
 loadLS();fillSettings();
