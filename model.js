@@ -373,14 +373,16 @@
     }
     return null;
   }
-  function parseFoot(daily, hourly) {
+  function parseFoot(daily, hourly, extra) {
     var days = {}, hours = {}, n = 0;
-    var hd = daily && findHeader(daily, ['Date', 'Count_IN']);
+    [daily].concat(extra || []).forEach(function (sh) {
+    var hd = sh && findHeader(sh, ['Date', 'Count_IN']);
     if (hd) for (var i = hd.i + 1; i < daily.length; i++) {
       var r = daily[i] || [], k = dkey(r[hd.h.indexOf('Date')]); if (!k) continue;
       var c = num(r[hd.h.indexOf('Count_IN')]), a = hd.h.indexOf('Adults_IN') >= 0 ? num(r[hd.h.indexOf('Adults_IN')]) : c;
       days[k] = [c, a]; n++;
     }
+    });
     var hh = hourly && findHeader(hourly, ['Date', 'Hour', 'Count_IN']);
     if (hh) for (var j = hh.i + 1; j < hourly.length; j++) {
       var q = hourly[j] || [], kk = dkey(q[hh.h.indexOf('Date')]); if (!kk) continue;
@@ -388,7 +390,7 @@
       var a2 = hours[kk] || (hours[kk] = []); for (var z = 0; z < 24; z++) if (a2[z] == null) a2[z] = 0;
       a2[hr] = num(q[hh.h.indexOf('Count_IN')]);
     }
-    if (!n) Object.keys(hours).forEach(function (k) { var t = 0; hours[k].forEach(function (v) { t += v; }); days[k] = [t, t]; });
+    Object.keys(hours).forEach(function (k) { if (days[k]) return; var t = 0; hours[k].forEach(function (v) { t += v; }); days[k] = [t, t]; n++; });
     return { days: days, hours: hours };
   }
   var DOWN = ['Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota', 'Neděle'];

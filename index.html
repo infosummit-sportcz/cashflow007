@@ -826,7 +826,7 @@ $('#btn-foot').addEventListener('click',function(){
   readBook(f).then(function(wb){
     var d=findSheet(wb,/^Daily/i,/Boundary/i),h=findSheet(wb,/^Hourly/i);
     var da=d?XLSX.utils.sheet_to_json(d,{header:1,defval:'',raw:true}):null,ha=h?XLSX.utils.sheet_to_json(h,{header:1,defval:'',raw:true}):null;
-    var p=M.parseFoot(da,ha),n=Object.keys(p.days).length;
+    var ex=wb.SheetNames.filter(function(x){return /^\d{4} /.test(x)}).map(function(x){return XLSX.utils.sheet_to_json(wb.Sheets[x],{header:1,defval:'',raw:true})});var p=M.parseFoot(da,ha,ex),n=Object.keys(p.days).length;
     if(!n)throw new Error('V souboru jsem nenašel listy „Daily“ / „Hourly Data“ se sloupci Date a Count_IN.');
     var old=state.foot||{days:{},hours:{}};
     state.foot={at:iso8(),file:f.name,days:Object.assign({},old.days,p.days),hours:Object.assign({},old.hours,p.hours)};
@@ -1077,7 +1077,7 @@ $('#rq-xls').addEventListener('click',function(){
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a),'Poptávky');XLSX.writeFile(wb,'FAPO_poptavky_'+today()+'.xlsx');
 });
 
-var APP_VER='0.21';$('#ver').textContent='ver'+APP_VER;
+var APP_VER='0.22';$('#ver').textContent='ver'+APP_VER;
 /* ---------- start ---------- */
 if(typeof XLSX==='undefined'){$('#load-msg').innerHTML='<b style="color:#c62828">Chybí soubor xlsx.full.min.js – nahrajte ho do repozitáře vedle index.html a obnovte stránku (Ctrl+F5).</b>'}
 loadLS();fillSettings();
